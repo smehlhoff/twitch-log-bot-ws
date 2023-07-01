@@ -14,7 +14,7 @@ pub struct Tag {
     pub first_msg: i32,
     pub flags: String,
     pub id: String,
-    pub r#mod: i32,
+    pub is_mod: i32,
     pub reply_parent_display_name: String,
     pub reply_parent_msg_body: String,
     pub reply_parent_msg_id: String,
@@ -45,7 +45,7 @@ impl Tag {
             first_msg: 0,
             flags: String::new(),
             id: String::new(),
-            r#mod: 0,
+            is_mod: 0,
             reply_parent_display_name: String::new(),
             reply_parent_msg_body: String::new(),
             reply_parent_msg_id: String::new(),
@@ -112,7 +112,7 @@ impl Tag {
                 first_msg: tags.get("first-msg").map_or(0, |x| x.parse::<i32>().unwrap_or(0)),
                 flags: tags.get("flags").map_or(String::new(), std::string::ToString::to_string),
                 id: tags.get("id").map_or(String::new(), std::string::ToString::to_string),
-                r#mod: tags.get("mod").map_or(0, |x| x.parse::<i32>().unwrap_or(0)),
+                is_mod: tags.get("mod").map_or(0, |x| x.parse::<i32>().unwrap_or(0)),
                 reply_parent_display_name: tags
                     .get("reply-parent-display-name")
                     .map_or(String::new(), std::string::ToString::to_string),

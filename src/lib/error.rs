@@ -11,10 +11,10 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Self::Io(ref err) => write!(f, "{}", err),
-            Self::Json(ref err) => write!(f, "{}", err),
-            Self::Postgres(ref err) => write!(f, "{}", err),
-            Self::Regex(ref err) => write!(f, "{}", err),
+            Self::Io(ref err) => write!(f, "{err}"),
+            Self::Json(ref err) => write!(f, "{err}"),
+            Self::Postgres(ref err) => write!(f, "{err}"),
+            Self::Regex(ref err) => write!(f, "{err}"),
         }
     }
 }

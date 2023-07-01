@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use tungstenite::{connect, Message};
 
-fn connect_and_listen(shard_channels: Vec<String>) {
+fn connect_and_listen(channels: Vec<String>) {
     let v = Arc::new(Mutex::new(Vec::new()));
     let config = Config::load().expect("Error reading config file");
     let (mut socket, _response) =
@@ -29,11 +29,11 @@ fn connect_and_listen(shard_channels: Vec<String>) {
     socket.write_message(Message::Text(format!("NICK {}", config.nickname))).unwrap();
 
     // The rate limit to join channels is 50 every 15 seconds.
-    for channel in shard_channels {
-        if !channel.contains("#") {
-            socket.write_message(Message::Text(format!("JOIN #{}", channel))).unwrap();
+    for channel in channels {
+        if !channel.contains('#') {
+            socket.write_message(Message::Text(format!("JOIN #{channel}"))).unwrap();
         } else {
-            socket.write_message(Message::Text(format!("JOIN {}", channel))).unwrap();
+            socket.write_message(Message::Text(format!("JOIN {channel}"))).unwrap();
         }
         thread::sleep(time::Duration::from_millis(320));
     }
@@ -51,12 +51,10 @@ fn connect_and_listen(shard_channels: Vec<String>) {
         let msg = Msg::parse_message(&data);
         let event = Event::new(msg, tags);
 
-        println!("{:?}", event);
-
         if event.msg.content.len() > 1 {
             v.push(event);
 
-            if v.len() >= 100 {
+            if v.len() >= 50 {
                 db::insert_logs(v.to_owned());
                 v.clear();
             }
@@ -75,7 +73,7 @@ fn main() {
     match channel_count {
         0 => println!("Bot is logging 0 channels..."),
         1 => println!("Bot is logging 1 channel..."),
-        _ => println!("Bot is logging {} channels...", channel_count),
+        _ => println!("Bot is logging {channel_count} channels..."),
     };
 
     let thread_count = {
@@ -92,7 +90,7 @@ fn main() {
     } else {
         let chunk_size = channel_count / thread_count;
         let thread_channels: Vec<Vec<_>> =
-            channels.chunks(chunk_size).map(|c| c.to_vec()).collect();
+            channels.chunks(chunk_size).map(|x| x.to_vec()).collect();
         let mut threads = Vec::new();
 
         for i in 0..=thread_count {
