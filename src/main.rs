@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use tungstenite::{connect, Message};
 
-fn connect_and_listen(channels: Vec<String>) {
+fn connect_and_listen(channels: Vec<String>, buffer_size: usize) {
     let v = Arc::new(Mutex::new(Vec::new()));
     let config = Config::load().expect("Error reading config file");
     let (mut socket, _response) =
@@ -54,7 +54,7 @@ fn connect_and_listen(channels: Vec<String>) {
         if event.msg.content.len() > 1 {
             v.push(event);
 
-            if v.len() >= 50 {
+            if v.len() >= buffer_size {
                 db::insert_logs(v.to_owned());
                 v.clear();
             }
@@ -84,19 +84,27 @@ fn main() {
             count.ceil() as usize
         }
     };
+    let buffer_size = channel_count * 4;
 
     if thread_count == 1 {
-        connect_and_listen(channels);
+        connect_and_listen(channels, buffer_size);
     } else {
-        let chunk_size = channel_count / thread_count;
+        let chunk_size = {
+            if channel_count % 2 == 0 {
+                channel_count / thread_count
+            } else {
+                (channel_count + 1) / thread_count
+            }
+        };
         let thread_channels: Vec<Vec<_>> =
             channels.chunks(chunk_size).map(|x| x.to_vec()).collect();
         let mut threads = Vec::new();
 
-        for i in 0..=thread_count {
+        for i in 0..thread_count {
             let thread_channel_list: Vec<String> =
                 thread_channels[i].iter().map(|x| x.to_owned()).collect();
-            let thread = thread::spawn(move || connect_and_listen(thread_channel_list));
+            let thread =
+                thread::spawn(move || connect_and_listen(thread_channel_list, buffer_size));
 
             threads.push(thread);
         }
