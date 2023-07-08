@@ -4,12 +4,12 @@ use crate::lib::error;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
-    pub nickname: String,
-    pub oauth: String,
-    pub server: String,
-    pub postgres: String,
     pub admins: Vec<String>,
     pub channels: Vec<String>,
+    pub nickname: String,
+    pub oauth: String,
+    pub postgres: String,
+    pub server: String,
 }
 
 impl Config {
