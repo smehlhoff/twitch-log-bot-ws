@@ -7,7 +7,14 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde_derive;
 
-mod lib;
+mod lib {
+    pub mod config;
+    pub mod db;
+    pub mod error;
+    pub mod event;
+    pub mod msg;
+    pub mod tags;
+}
 
 use lib::{config::Config, db, event::Event, msg::Msg, tags::Tag};
 use std::sync::{Arc, Mutex};
