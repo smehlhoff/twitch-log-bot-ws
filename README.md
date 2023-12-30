@@ -1,8 +1,8 @@
 # twitch-log-bot-ws
 
-This bot logs twitch.tv channel messages via WebSocket connection.
+This bot logs twitch.tv channel messages via websockets.
 
-By default, channel messages are inserted into a `postgres` database.
+By default, channel messages are stored in a `postgres` database.
 
 ## Installation
 
