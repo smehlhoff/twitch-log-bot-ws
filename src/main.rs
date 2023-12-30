@@ -38,10 +38,10 @@ fn connect_and_listen(channels: Vec<String>, buffer_size: usize) {
     // The rate limit to join channels is 20 per 10 seconds per account
     // https://dev.twitch.tv/docs/irc/#rate-limits
     for channel in channels {
-        if !channel.contains('#') {
-            socket.send(Message::Text(format!("JOIN #{channel}"))).unwrap();
-        } else {
+        if channel.contains('#') {
             socket.send(Message::Text(format!("JOIN {channel}"))).unwrap();
+        } else {
+            socket.send(Message::Text(format!("JOIN #{channel}"))).unwrap();
         }
         thread::sleep(time::Duration::from_secs_f32(0.6));
     }
@@ -88,7 +88,7 @@ fn main() {
         if channel_count < 50 {
             1
         } else {
-            let count = channel_count as f64 / 50 as f64;
+            let count = channel_count as f64 / 50_f64;
             count.ceil() as usize
         }
     };
@@ -110,7 +110,7 @@ fn main() {
 
         for i in 0..thread_count {
             let thread_channel_list: Vec<String> =
-                thread_channels[i].iter().map(|x| x.to_owned()).collect();
+                thread_channels[i].iter().map(std::borrow::ToOwned::to_owned).collect();
 
             buffer_size = thread_channel_list.len() * 4;
 

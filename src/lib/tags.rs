@@ -72,7 +72,7 @@ impl Tag {
             };
         }
 
-        RE.captures(data).map_or_else(|| String::new(), |msg| msg["tags"].to_string())
+        RE.captures(data).map_or_else(String::new, |msg| msg["tags"].to_string())
     }
 
     // https://dev.twitch.tv/docs/irc/tags
