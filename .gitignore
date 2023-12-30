@@ -14,6 +14,5 @@ Cargo.lock
 *.pdb
 
 # Misc
-
 config.json
 .vscode

@@ -1,10 +1,10 @@
 {
-    "admins": [],
-    "channels": [
-      ""
-    ],
-    "nickname": "",
-    "oauth": "",
-    "postgres": "",
-    "server": ""
-  }
+  "admins": [],
+  "channels": [
+    ""
+  ],
+  "nickname": "",
+  "oauth": "",
+  "postgres": "postgres://postgres:dev@localhost",
+  "server": "ws://irc-ws.chat.twitch.tv:80"
+}
