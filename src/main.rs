@@ -1,6 +1,7 @@
 #![warn(clippy::all)]
-#![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
+// #![warn(clippy::pedantic)]
+#![allow(clippy::needless_range_loop)]
 
 #[macro_use]
 extern crate lazy_static;
