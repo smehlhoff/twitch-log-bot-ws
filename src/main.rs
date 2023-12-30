@@ -28,31 +28,31 @@ fn connect_and_listen(channels: Vec<String>, buffer_size: usize) {
         connect(config.server).expect("Error connecting to websocket server");
 
     socket
-        .write_message(Message::Text(
+        .send(Message::Text(
             "CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands".into(),
         ))
         .unwrap();
-    socket.write_message(Message::Text(format!("PASS {}", config.oauth))).unwrap();
-    socket.write_message(Message::Text(format!("NICK {}", config.nickname))).unwrap();
+    socket.send(Message::Text(format!("PASS {}", config.oauth))).unwrap();
+    socket.send(Message::Text(format!("NICK {}", config.nickname))).unwrap();
 
     // The rate limit to join channels is 20 per 10 seconds per account
     // https://dev.twitch.tv/docs/irc/#rate-limits
     for channel in channels {
         if !channel.contains('#') {
-            socket.write_message(Message::Text(format!("JOIN #{channel}"))).unwrap();
+            socket.send(Message::Text(format!("JOIN #{channel}"))).unwrap();
         } else {
-            socket.write_message(Message::Text(format!("JOIN {channel}"))).unwrap();
+            socket.send(Message::Text(format!("JOIN {channel}"))).unwrap();
         }
         thread::sleep(time::Duration::from_secs_f32(0.6));
     }
 
     loop {
-        let data = socket.read_message().expect("Error reading websocket message");
+        let data = socket.read().expect("Error reading websocket message");
         let data = data.into_text().expect("Error converting websocket message to string");
         let mut v = v.lock().expect("Error acquiring channel mutex");
 
         if data == "PING :tmi.twitch.tv" {
-            socket.write_message(Message::Text("PONG :tmi.twitch.tv".into())).unwrap();
+            socket.send(Message::Text("PONG :tmi.twitch.tv".into())).unwrap();
         }
 
         let tags = Tag::parse_tags(&data);
