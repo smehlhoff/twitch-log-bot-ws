@@ -52,7 +52,7 @@ fn connect_and_listen(channels: Vec<String>, buffer_size: usize) {
         let data = data.into_text().expect("Error converting websocket message to string");
         let mut v = v.lock().expect("Error acquiring channel mutex");
 
-        if data == "PING :tmi.twitch.tv" {
+        if data == "PING :tmi.twitch.tv\r\n" {
             socket.send(Message::Text("PONG :tmi.twitch.tv".into())).unwrap();
         }
 
