@@ -4,6 +4,6 @@
   ],
   "nickname": "",
   "oauth": "",
-  "postgres": "postgres://postgres:dev@localhost",
+  "postgres": "postgres://postgres:dev@localhost/postgres",
   "server": "ws://irc-ws.chat.twitch.tv:80"
 }
