@@ -1,7 +1,6 @@
 #![warn(clippy::all)]
 #![warn(clippy::nursery)]
-// #![warn(clippy::pedantic)]
-#![allow(clippy::needless_range_loop)]
+#![warn(clippy::pedantic)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -89,7 +88,7 @@ fn main() {
         if channel_count < 50 {
             1
         } else {
-            let count = channel_count as f64 / 50_f64;
+            let count = channel_count as f64 / 50.0;
             count.ceil() as usize
         }
     };
@@ -105,7 +104,7 @@ fn main() {
                 (channel_count + 1) / thread_count
             }
         };
-        let thread_channels: Vec<Vec<_>> =
+        let thread_channels: Vec<Vec<String>> =
             channels.chunks(chunk_size).map(|x| x.to_vec()).collect();
         let mut threads = Vec::new();
 
@@ -123,6 +122,8 @@ fn main() {
 
         for thread in threads {
             thread.join().expect("Thread panicked");
+            // Let thread join all channels before starting next one
+            thread::sleep(time::Duration::from_secs(30));
         }
     }
 }
