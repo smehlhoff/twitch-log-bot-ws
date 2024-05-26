@@ -1,4 +1,4 @@
-use crate::lib::{msg::Msg, tags::Tag};
+use super::{msg::Msg, tags::Tag};
 
 #[derive(Debug, Clone)]
 pub struct Event {

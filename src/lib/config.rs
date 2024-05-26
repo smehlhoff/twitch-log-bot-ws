@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::lib::error;
+use super::error;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
