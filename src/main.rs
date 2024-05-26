@@ -124,7 +124,7 @@ async fn main() -> Result<(), error::Error> {
         if channel_count < 50 {
             1
         } else {
-            let count = channel_count as f64 / 5.00;
+            let count = channel_count as f64 / 50.0;
             count.ceil() as usize
         }
     };
