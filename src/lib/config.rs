@@ -7,7 +7,10 @@ pub struct Config {
     pub channels: Vec<String>,
     pub nickname: String,
     pub oauth: String,
-    pub postgres: String,
+    pub postgres_db: String,
+    pub postgres_host: String,
+    pub postgres_password: String,
+    pub postgres_user: String,
     pub server: String,
 }
 

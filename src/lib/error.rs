@@ -4,7 +4,7 @@ use std::fmt;
 pub enum Error {
     Io(std::io::Error),
     Json(serde_json::Error),
-    Postgres(postgres::Error),
+    Postgres(tokio_postgres::Error),
     Regex(regex::Error),
 }
 
@@ -31,8 +31,8 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<postgres::Error> for Error {
-    fn from(err: postgres::Error) -> Self {
+impl From<tokio_postgres::Error> for Error {
+    fn from(err: tokio_postgres::Error) -> Self {
         Self::Postgres(err)
     }
 }

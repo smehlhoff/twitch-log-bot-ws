@@ -1,9 +1,12 @@
 {
   "channels": [
-    ""
+    "#dansgaming"
   ],
   "nickname": "",
   "oauth": "",
-  "postgres": "postgres://postgres:dev@localhost/postgres",
+  "postgres_db": "postgres",
+  "postgres_host": "localhost",
+  "postgres_password": "postgres",
+  "postgres_user": "postgres",
   "server": "ws://irc-ws.chat.twitch.tv:80"
 }

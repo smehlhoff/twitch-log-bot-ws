@@ -7,6 +7,15 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde_derive;
 
+use bb8::Pool;
+use bb8_postgres::PostgresConnectionManager;
+use lib::{config, db, error, event, msg, tags};
+use std::sync::Arc;
+use std::{thread, time};
+use tokio::sync::Mutex;
+use tokio_postgres::NoTls;
+use tungstenite::{connect, Message};
+
 mod lib {
     pub mod config;
     pub mod db;
@@ -16,14 +25,13 @@ mod lib {
     pub mod tags;
 }
 
-use lib::{config::Config, db, event::Event, msg::Msg, tags::Tag};
-use std::sync::{Arc, Mutex};
-use std::{thread, time};
-use tungstenite::{connect, Message};
-
-fn connect_and_listen(channels: Vec<String>, buffer_size: usize) {
+async fn connect_and_listen(
+    pool: Pool<PostgresConnectionManager<NoTls>>,
+    channels: Vec<String>,
+    buffer_size: usize,
+) {
     let v = Arc::new(Mutex::new(Vec::new()));
-    let config = Config::load().expect("Error reading config file");
+    let config = config::Config::load().expect("Error reading config file");
     let (mut socket, _response) =
         connect(config.server).expect("Error connecting to websocket server");
 
@@ -49,21 +57,21 @@ fn connect_and_listen(channels: Vec<String>, buffer_size: usize) {
     loop {
         let data = socket.read().expect("Error reading websocket message");
         let data = data.into_text().expect("Error converting websocket message to string");
-        let mut v = v.lock().expect("Error acquiring channel mutex");
+        let mut v = v.lock().await;
 
         if data == "PING :tmi.twitch.tv\r\n" {
             socket.send(Message::Text("PONG :tmi.twitch.tv".into())).unwrap();
         }
 
-        let tags = Tag::parse_tags(&data);
-        let msg = Msg::parse_message(&data);
-        let event = Event::new(msg, tags);
+        let tags = tags::Tag::parse_tags(&data);
+        let msg = msg::Msg::parse_message(&data);
+        let event = event::Event::new(msg, tags);
 
         if event.msg.content.len() > 1 {
             v.push(event);
 
             if v.len() >= buffer_size {
-                db::insert_logs(v.to_owned());
+                let _ = db::insert_data(&pool, v.to_owned()).await;
                 v.clear();
             }
         }
@@ -71,18 +79,14 @@ fn connect_and_listen(channels: Vec<String>, buffer_size: usize) {
     // socket.close(None);
 }
 
-fn main() {
-    db::create_tables().expect("Error creating postgres table");
-
-    let config = Config::load().expect("Error reading config file");
+#[tokio::main]
+async fn main() -> Result<(), error::Error> {
+    let config = config::Config::load()?;
+    let pool = db::create_pool(&config).await?;
     let channels = config.channels;
     let channel_count = channels.len();
 
-    match channel_count {
-        0 => println!("Bot is logging 0 channels..."),
-        1 => println!("Bot is logging 1 channel..."),
-        _ => println!("Bot is logging {channel_count} channels..."),
-    };
+    db::create_table(&pool).await?;
 
     let thread_count = {
         if channel_count < 50 {
@@ -95,7 +99,7 @@ fn main() {
     let mut buffer_size = channel_count * 4;
 
     if thread_count == 1 {
-        connect_and_listen(channels, buffer_size);
+        connect_and_listen(pool, channels, buffer_size).await;
     } else {
         let chunk_size = {
             if channel_count % 2 == 0 {
@@ -107,23 +111,43 @@ fn main() {
         let thread_channels: Vec<Vec<String>> =
             channels.chunks(chunk_size).map(|x| x.to_vec()).collect();
         let mut threads = Vec::new();
+        let mut count = 0;
+
+        println!("Bot is now joining channels... This may take some time depending on the number of channels configured.\n");
 
         for i in 0..thread_count {
+            let pool_clone = pool.clone();
             let thread_channel_list: Vec<String> =
                 thread_channels[i].iter().map(std::borrow::ToOwned::to_owned).collect();
 
             buffer_size = thread_channel_list.len() * 4;
 
-            let thread =
-                thread::spawn(move || connect_and_listen(thread_channel_list, buffer_size));
+            println!("Joined: {thread_channel_list:?}");
+
+            count += thread_channel_list.len();
+
+            let thread = tokio::spawn(async move {
+                connect_and_listen(pool_clone, thread_channel_list, buffer_size).await;
+            });
 
             threads.push(thread);
+
+            if count != channel_count {
+                // Let previous thread join all channels before starting the next one
+                thread::sleep(time::Duration::from_secs(25));
+            }
         }
 
+        match channel_count {
+            0 => println!("\nBot is logging 0 channels..."),
+            1 => println!("\nBot is logging 1 channel..."),
+            _ => println!("\nBot is logging {channel_count} channels..."),
+        };
+
         for thread in threads {
-            thread.join().expect("Thread panicked");
-            // Let thread join all channels before starting next one
-            thread::sleep(time::Duration::from_secs(30));
+            thread.await.expect("Thread panicked");
         }
     }
+
+    Ok(())
 }
