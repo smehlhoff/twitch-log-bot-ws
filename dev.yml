@@ -1,14 +1,46 @@
-version: '3'
+version: "3"
 
 services:
   db:
     container_name: db
-    image: 'postgres:15'
+    image: postgres:15
     env_file: ./.envs/.dev
     ports:
-      - '5432:5432'
+      - "5432:5432"
     networks:
       - backend_network
     volumes:
-      - 'db_data:/var/lib/postgresql/data'
+      - db_data:/var/lib/postgresql/data
     restart: unless-stopped
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - backend_network
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+  ubuntu_server:
+    container_name: ubuntu_server
+    image: ubuntu:22.04
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    env_file: ./.envs/.dev
+    stdin_open: true
+    tty: true
+    ports:
+      - "22:22"
+    networks:
+      - backend_network
+
+networks:
+  backend_network:
+
+volumes:
+  db_data:
+  grafana_data:

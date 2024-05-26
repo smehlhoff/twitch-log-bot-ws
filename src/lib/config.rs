@@ -4,6 +4,7 @@ use crate::lib::error;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
+    pub debug: bool,
     pub channels: Vec<String>,
     pub nickname: String,
     pub oauth: String,

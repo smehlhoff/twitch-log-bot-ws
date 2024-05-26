@@ -29,7 +29,11 @@ mod lib {
 const MIN_BATCH_SIZE: usize = 10;
 const MAX_BATCH_SIZE: usize = 100;
 
-async fn connect_and_listen(pool: Pool<PostgresConnectionManager<NoTls>>, channels: Vec<String>) {
+async fn connect_and_listen(
+    pool: Pool<PostgresConnectionManager<NoTls>>,
+    channels: Vec<String>,
+    thread_id: u32,
+) {
     let batch = Arc::new(Mutex::new(Vec::new()));
     let mut batch_size = 10;
     let mut buffer = VecDeque::new();
@@ -72,6 +76,11 @@ async fn connect_and_listen(pool: Pool<PostgresConnectionManager<NoTls>>, channe
     });
 
     loop {
+        if config.debug {
+            let buffer_count = buffer.len();
+            println!("Thread #{thread_id} - Batch Size: {batch_size} Buffer Count: {buffer_count}");
+        }
+
         let data = socket.read().expect("Error reading websocket message");
         let data = data.into_text().expect("Error converting websocket message to string");
         let mut batch = batch.lock().await;
@@ -117,6 +126,7 @@ async fn main() -> Result<(), error::Error> {
     let pool = db::create_pool(&config).await?;
     let channels = config.channels;
     let channel_count = channels.len();
+    let mut thread_id = 0;
 
     db::create_table(&pool).await?;
 
@@ -135,8 +145,9 @@ async fn main() -> Result<(), error::Error> {
     };
 
     if thread_count == 1 {
-        println!("Thread #0: {channels:?}");
-        connect_and_listen(pool, channels).await;
+        println!("Thread #{thread_id}: {channels:?}");
+
+        connect_and_listen(pool, channels, thread_id).await;
     } else {
         let chunk_size = {
             if channel_count % 2 == 0 {
@@ -156,12 +167,14 @@ async fn main() -> Result<(), error::Error> {
             let thread_channel_list: Vec<String> =
                 thread_channels[i].iter().map(std::borrow::ToOwned::to_owned).collect();
 
-            println!("Thread #{i}: {thread_channel_list:?}");
+            thread_id = i as u32;
+
+            println!("Thread #{thread_id}: {thread_channel_list:?}");
 
             count += thread_channel_list.len();
 
             let thread = tokio::spawn(async move {
-                connect_and_listen(pool_clone, thread_channel_list).await;
+                connect_and_listen(pool_clone, thread_channel_list, thread_id).await;
             });
 
             threads.push(thread);

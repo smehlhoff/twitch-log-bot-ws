@@ -68,6 +68,7 @@ pub async fn create_table(
                 &[],
             )
             .await?;
+
             Ok(())
         }
         Err(e) => {
