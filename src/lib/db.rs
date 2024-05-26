@@ -78,7 +78,7 @@ pub async fn create_table(
 }
 
 pub async fn insert_data(
-    pool: &Pool<PostgresConnectionManager<NoTls>>,
+    pool: Pool<PostgresConnectionManager<NoTls>>,
     events: Vec<event::Event>,
 ) -> Result<(), error::Error> {
     match pool.get().await {

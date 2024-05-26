@@ -1,6 +1,6 @@
 #![warn(clippy::all)]
-#![warn(clippy::nursery)]
-#![warn(clippy::pedantic)]
+// #![warn(clippy::nursery)]
+// #![warn(clippy::pedantic)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -28,9 +28,9 @@ mod lib {
 async fn connect_and_listen(
     pool: Pool<PostgresConnectionManager<NoTls>>,
     channels: Vec<String>,
-    buffer_size: usize,
+    batch_size: usize,
 ) {
-    let v = Arc::new(Mutex::new(Vec::new()));
+    let batch = Arc::new(Mutex::new(Vec::new()));
     let config = config::Config::load().expect("Error reading config file");
     let (mut socket, _response) =
         connect(config.server).expect("Error connecting to websocket server");
@@ -57,7 +57,7 @@ async fn connect_and_listen(
     loop {
         let data = socket.read().expect("Error reading websocket message");
         let data = data.into_text().expect("Error converting websocket message to string");
-        let mut v = v.lock().await;
+        let mut batch = batch.lock().await;
 
         if data == "PING :tmi.twitch.tv\r\n" {
             socket.send(Message::Text("PONG :tmi.twitch.tv".into())).unwrap();
@@ -68,11 +68,18 @@ async fn connect_and_listen(
         let event = event::Event::new(msg, tags);
 
         if event.msg.content.len() > 1 {
-            v.push(event);
+            batch.push(event);
 
-            if v.len() >= buffer_size {
-                let _ = db::insert_data(&pool, v.to_owned()).await;
-                v.clear();
+            if batch.len() >= batch_size {
+                let pool_clone = pool.clone();
+                let batch_clone = batch.clone();
+                tokio::spawn(async move {
+                    match db::insert_data(pool_clone, batch_clone).await {
+                        Ok(_) => {}
+                        Err(e) => eprint!("{e}"),
+                    };
+                });
+                batch.clear();
             }
         }
     }
@@ -96,10 +103,17 @@ async fn main() -> Result<(), error::Error> {
             count.ceil() as usize
         }
     };
-    let mut buffer_size = channel_count * 4;
+    let mut batch_size = channel_count * 4;
+
+    match channel_count {
+        0 => println!("Bot is now joining 0 channels...\n"),
+        1 => println!("Bot is now joining 1 channel...\n"),
+        _ => println!("Bot is now joining {channel_count} channels...\n"),
+    };
 
     if thread_count == 1 {
-        connect_and_listen(pool, channels, buffer_size).await;
+        println!("Thread #0: {channels:?}");
+        connect_and_listen(pool, channels, batch_size).await;
     } else {
         let chunk_size = {
             if channel_count % 2 == 0 {
@@ -113,21 +127,20 @@ async fn main() -> Result<(), error::Error> {
         let mut threads = Vec::new();
         let mut count = 0;
 
-        println!("Bot is now joining channels... This may take some time depending on the number of channels configured.\n");
-
+        #[warn(clippy::needless_range_loop)]
         for i in 0..thread_count {
             let pool_clone = pool.clone();
             let thread_channel_list: Vec<String> =
                 thread_channels[i].iter().map(std::borrow::ToOwned::to_owned).collect();
 
-            buffer_size = thread_channel_list.len() * 4;
+            batch_size = thread_channel_list.len() * 4;
 
-            println!("Joined: {thread_channel_list:?}");
+            println!("Thread #{i}: {thread_channel_list:?}");
 
             count += thread_channel_list.len();
 
             let thread = tokio::spawn(async move {
-                connect_and_listen(pool_clone, thread_channel_list, buffer_size).await;
+                connect_and_listen(pool_clone, thread_channel_list, batch_size).await;
             });
 
             threads.push(thread);
@@ -137,12 +150,6 @@ async fn main() -> Result<(), error::Error> {
                 thread::sleep(time::Duration::from_secs(25));
             }
         }
-
-        match channel_count {
-            0 => println!("\nBot is logging 0 channels..."),
-            1 => println!("\nBot is logging 1 channel..."),
-            _ => println!("\nBot is logging {channel_count} channels..."),
-        };
 
         for thread in threads {
             thread.await.expect("Thread panicked");
