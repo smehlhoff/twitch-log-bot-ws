@@ -9,7 +9,7 @@ RUN apt-get update \
         git \
         openssh-server \
         iputils-ping \
-        build-essential
+        build-essential \
     && apt-get clean
 
 RUN ssh-keygen -A \
