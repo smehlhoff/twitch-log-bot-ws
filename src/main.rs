@@ -12,9 +12,7 @@ use bb8_postgres::PostgresConnectionManager;
 use env_logger::Env;
 use lib::{config, db, error, event, msg, tags};
 use log::{info, warn};
-use std::collections::VecDeque;
-use std::sync::Arc;
-use std::{cmp, thread, time};
+use std::{cmp, collections::VecDeque, sync::Arc, thread, time};
 use tokio::sync::{mpsc, Mutex};
 use tokio_postgres::NoTls;
 use tungstenite::{connect, Message};
@@ -71,7 +69,7 @@ async fn connect_and_listen(
             tokio::spawn(async move {
                 match db::insert_data(pool_clone, batch_ready).await {
                     Ok(()) => {}
-                    Err(e) => eprint!("{e}"),
+                    Err(e) => warn!("{e}"),
                 }
             });
         }
@@ -141,6 +139,7 @@ async fn main() -> Result<(), error::Error> {
             count.ceil() as usize
         }
     };
+
     match channel_count {
         0 => println!("Bot is now joining 0 channels...\n"),
         1 => println!("Bot is now joining 1 channel...\n"),
@@ -160,7 +159,7 @@ async fn main() -> Result<(), error::Error> {
             }
         };
         let thread_channels: Vec<Vec<String>> =
-            channels.chunks(chunk_size).map(|x| x.to_vec()).collect();
+            channels.chunks(chunk_size).map(std::borrow::ToOwned::to_owned).collect();
         let mut threads = Vec::new();
         let mut count = 0;
 
@@ -170,7 +169,7 @@ async fn main() -> Result<(), error::Error> {
             let thread_channel_list: Vec<String> =
                 thread_channels[i].iter().map(std::borrow::ToOwned::to_owned).collect();
 
-            thread_id = i as u32;
+            thread_id = u32::try_from(i).unwrap_or(0);
 
             println!("Thread #{thread_id}: {thread_channel_list:?}\n");
 

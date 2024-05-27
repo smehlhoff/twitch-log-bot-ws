@@ -1,6 +1,6 @@
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use tokio::time::Duration;
 use tokio_postgres::NoTls;
 
@@ -105,7 +105,7 @@ pub async fn insert_data(
         Ok(mut conn) => {
             let transaction = match conn.transaction().await {
                 Ok(transaction) => {
-                    info!("Retrieved Postgres transaction successfully");
+                    debug!("Retrieved Postgres transaction successfully");
                     transaction
                 }
                 Err(e) => {
@@ -148,7 +148,7 @@ pub async fn insert_data(
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
             );").await {
                 Ok(statement) => {
-                    info!("Postgres statement prepared successfully");
+                    debug!("Postgres statement prepared successfully");
                     statement
                 },
                 Err(e) => {
@@ -199,13 +199,13 @@ pub async fn insert_data(
                 .await;
 
                 match result {
-                    Ok(Ok(_)) => info!("Data inserted successfully"),
+                    Ok(Ok(_)) => debug!("Postgres statement executed successfully"),
                     Ok(Err(e)) => {
-                        warn!("Error inserting data: {e}");
+                        warn!("Error executing Postgres statement: {e}");
                         return Err(error::Error::Postgres(e));
                     }
                     Err(e) => {
-                        warn!("Timeout occurred while inserting data: {e}");
+                        warn!("Timeout occurred while executing Postgres statement: {e}");
                     }
                 };
             }
