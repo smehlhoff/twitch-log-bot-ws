@@ -1,5 +1,6 @@
 use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
+use log::{error, info, warn};
 use tokio::time::Duration;
 use tokio_postgres::NoTls;
 
@@ -17,13 +18,22 @@ pub async fn create_pool(
         .dbname(&secrets.postgres_db);
 
     let manager = PostgresConnectionManager::new(config, NoTls);
-    let pool = Pool::builder()
+
+    match Pool::builder()
         .max_size(15)
         .connection_timeout(Duration::from_secs(30))
         .build(manager)
-        .await?;
-
-    Ok(pool)
+        .await
+    {
+        Ok(pool) => {
+            info!("Postgres connection pool created successfully");
+            Ok(pool)
+        }
+        Err(e) => {
+            error!("Error creating Postgres connection pool: {e}");
+            Err(error::Error::Postgres(e))
+        }
+    }
 }
 
 pub async fn create_table(
@@ -31,49 +41,58 @@ pub async fn create_table(
 ) -> Result<(), error::Error> {
     match pool.get().await {
         Ok(conn) => {
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS logs (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR,
-                command VARCHAR,
-                channel VARCHAR,
-                content VARCHAR,
-                badge_info VARCHAR,
-                badges VARCHAR,
-                bits VARCHAR,
-                client_nonce VARCHAR,
-                color VARCHAR,
-                display_name VARCHAR,
-                emote_only VARCHAR,
-                emotes VARCHAR,
-                first_msg INTEGER,
-                flags VARCHAR,
-                is_mod INTEGER,
-                reply_parent_display_name VARCHAR,
-                reply_parent_msg_body VARCHAR,
-                reply_parent_msg_id VARCHAR,
-                reply_parent_user_id VARCHAR,
-                reply_parent_user_login VARCHAR,
-                returning_chatter INTEGER,
-                room_id VARCHAR,
-                subscriber INTEGER,
-                tags_raw VARCHAR,
-                tmi_sent_ts VARCHAR,
-                turbo INTEGER,
-                user_id VARCHAR,
-                user_type VARCHAR,
-                vip VARCHAR,
-                timestamp TIMESTAMP WITH TIME ZONE
-            );",
-                &[],
-            )
-            .await?;
-
-            Ok(())
+            match conn
+                .execute(
+                    "CREATE TABLE IF NOT EXISTS logs (
+                        id SERIAL PRIMARY KEY,
+                        username VARCHAR,
+                        command VARCHAR,
+                        channel VARCHAR,
+                        content VARCHAR,
+                        badge_info VARCHAR,
+                        badges VARCHAR,
+                        bits VARCHAR,
+                        client_nonce VARCHAR,
+                        color VARCHAR,
+                        display_name VARCHAR,
+                        emote_only VARCHAR,
+                        emotes VARCHAR,
+                        first_msg INTEGER,
+                        flags VARCHAR,
+                        is_mod INTEGER,
+                        reply_parent_display_name VARCHAR,
+                        reply_parent_msg_body VARCHAR,
+                        reply_parent_msg_id VARCHAR,
+                        reply_parent_user_id VARCHAR,
+                        reply_parent_user_login VARCHAR,
+                        returning_chatter INTEGER,
+                        room_id VARCHAR,
+                        subscriber INTEGER,
+                        tags_raw VARCHAR,
+                        tmi_sent_ts VARCHAR,
+                        turbo INTEGER,
+                        user_id VARCHAR,
+                        user_type VARCHAR,
+                        vip VARCHAR,
+                        timestamp TIMESTAMP WITH TIME ZONE
+                    );",
+                    &[],
+                )
+                .await
+            {
+                Ok(_) => {
+                    info!("Postgres table created successfully or already exists.");
+                    Ok(())
+                }
+                Err(e) => {
+                    error!("Error creating Postgres table: {e}");
+                    Err(error::Error::Postgres(e))
+                }
+            }
         }
         Err(e) => {
-            eprint!("{e}");
-            Ok(())
+            error!("Error retrieving connection from pool: {e}");
+            Err(error::Error::bb8(e))
         }
     }
 }
@@ -84,8 +103,17 @@ pub async fn insert_data(
 ) -> Result<(), error::Error> {
     match pool.get().await {
         Ok(mut conn) => {
-            let transaction = conn.transaction().await?;
-            let statement = transaction.prepare("INSERT INTO logs (
+            let transaction = match conn.transaction().await {
+                Ok(transaction) => {
+                    info!("Retrieved Postgres transaction successfully");
+                    transaction
+                }
+                Err(e) => {
+                    warn!("Error retrieving Postgres transaction: {e}");
+                    return Err(error::Error::Postgres(e));
+                }
+            };
+            let statement = match transaction.prepare("INSERT INTO logs (
                 username,
                 command,
                 channel,
@@ -116,9 +144,18 @@ pub async fn insert_data(
                 user_type,
                 vip,
                 timestamp
-              ) VALUES (
+            ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
-            );").await?;
+            );").await {
+                Ok(statement) => {
+                    info!("Postgres statement prepared successfully");
+                    statement
+                },
+                Err(e) => {
+                    warn!("Error preparing Postgres statement: {e}");
+                    return Err(error::Error::Postgres(e));
+                }
+            };
 
             for event in events {
                 let result = tokio::time::timeout(
@@ -161,18 +198,32 @@ pub async fn insert_data(
                 )
                 .await;
 
-                if let Err(e) = result {
-                    eprint!("{e}");
+                match result {
+                    Ok(Ok(_)) => info!("Data inserted successfully"),
+                    Ok(Err(e)) => {
+                        warn!("Error inserting data: {e}");
+                        return Err(error::Error::Postgres(e));
+                    }
+                    Err(e) => {
+                        warn!("Timeout occurred while inserting data: {e}");
+                    }
+                };
+            }
+
+            match transaction.commit().await {
+                Ok(()) => {
+                    info!("Postgres transaction committed successfully");
+                    Ok(())
+                }
+                Err(e) => {
+                    error!("Error committing Postgres transaction: {e}");
+                    Err(error::Error::Postgres(e))
                 }
             }
-            transaction.commit().await?;
-
-            Ok(())
         }
         Err(e) => {
-            eprint!("{e}");
-
-            Ok(())
+            error!("Error retrieving connection from pool: {e}");
+            Err(error::Error::bb8(e))
         }
     }
 }

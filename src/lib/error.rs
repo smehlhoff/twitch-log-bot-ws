@@ -1,7 +1,9 @@
 use std::fmt;
 
+#[allow(non_camel_case_types)]
 #[derive(Debug)]
 pub enum Error {
+    bb8(bb8::RunError<tokio_postgres::Error>),
     Io(std::io::Error),
     Json(serde_json::Error),
     Postgres(tokio_postgres::Error),
@@ -11,11 +13,18 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Self::bb8(ref err) => write!(f, "{err}"),
             Self::Io(ref err) => write!(f, "{err}"),
             Self::Json(ref err) => write!(f, "{err}"),
             Self::Postgres(ref err) => write!(f, "{err}"),
             Self::Regex(ref err) => write!(f, "{err}"),
         }
+    }
+}
+
+impl From<bb8::RunError<tokio_postgres::Error>> for Error {
+    fn from(err: bb8::RunError<tokio_postgres::Error>) -> Self {
+        Self::bb8(err)
     }
 }
 
