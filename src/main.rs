@@ -11,7 +11,7 @@ use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use env_logger::Env;
 use lib::{config, db, error, event, msg, tags};
-use log::{info, warn};
+use log::{debug, warn};
 use std::{cmp, collections::VecDeque, sync::Arc, thread, time};
 use tokio::sync::{mpsc, Mutex};
 use tokio_postgres::NoTls;
@@ -78,7 +78,7 @@ async fn connect_and_listen(
     loop {
         let buffer_count = buffer.len();
 
-        info!("Thread #{thread_id} - Batch Size: {batch_size} Buffer Count: {buffer_count}");
+        debug!("Thread #{thread_id} - Batch Size: {batch_size} Buffer Count: {buffer_count}");
 
         let data = socket.read().expect("Error reading websocket message");
         let data = data.into_text().expect("Error converting websocket message to string");
@@ -121,7 +121,7 @@ async fn connect_and_listen(
 
 #[tokio::main]
 async fn main() -> Result<(), error::Error> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 
     let config = config::Config::load()?;
     let pool = db::create_pool(&config).await?;
