@@ -17,4 +17,5 @@ Cargo.lock
 .vscode
 
 # Other
+.envs
 config.json

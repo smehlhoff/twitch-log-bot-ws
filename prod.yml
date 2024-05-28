@@ -3,12 +3,8 @@ version: "3"
 services:
   postgres:
     image: postgres:15
-    environment:
-      POSTGRES_USER: dev
-      POSTGRES_PASSWORD: dev
-      POSTGRES_DB: dev
-      DB_POSTGRESDB_PASSWORD: dev
-      MB_DB_PASS: dev
+    env_file:
+      - ./.envs/.prod
     ports:
       - "5432:5432"
     networks:
@@ -20,8 +16,8 @@ services:
 
   postgres_exporter:
     image: bitnami/postgres-exporter:latest
-    environment:
-      DATA_SOURCE_NAME: postgresql://dev:dev@postgres:5432/dev?sslmode=disable
+    env_file:
+      - ./.envs/.prod
     ports:
       - "9187:9187"
     networks:
@@ -45,9 +41,8 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    environment:
-      GF_SECURITY_ADMIN_USER: dev
-      GF_SECURITY_ADMIN_PASSWORD: dev
+    env_file:
+      - ./.envs/.prod
     ports:
       - "3000:3000"
     networks:
@@ -61,9 +56,8 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
-    environment:
-      SERVER_USERNAME: dev
-      SERVER_PASSWORD: dev
+    env_file:
+      - ./.envs/.prod
     stdin_open: true
     tty: true
     ports:
@@ -73,19 +67,8 @@ services:
 
   n8n:
     image: n8nio/n8n:latest
-    environment:
-      DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: postgres
-      DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: n8n
-      DB_POSTGRESDB_USER: n8n
-      DB_POSTGRESDB_PASSWORD: dev
-      N8N_BASIC_AUTH_ACTIVE: true
-      N8N_BASIC_AUTH_USER: dev
-      N8N_BASIC_AUTH_PASSWORD: dev
-      N8N_HOST: localhost
-      N8N_PORT: 5678
-      N8N_PROTOCOL: http
+    env_file:
+      - ./.envs/.prod
     ports:
       - "5678:5678"
     networks:
@@ -98,13 +81,8 @@ services:
 
   metabase:
     image: metabase/metabase:latest
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: metabase
-      MB_DB_PORT: 5432
-      MB_DB_USER: metabase
-      MB_DB_PASS: dev
-      MB_DB_HOST: postgres
+    env_file:
+      - ./.envs/.prod
     ports:
       - "3001:3000"
     networks:
