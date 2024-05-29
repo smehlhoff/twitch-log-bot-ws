@@ -11,8 +11,8 @@ services:
       - backend_network
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/init.sh:/docker-entrypoint-initdb.d/init.sh
-      - ./docker/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./docker/database/init.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./docker/database/postgresql.conf:/etc/postgresql/postgresql.conf
     restart: unless-stopped
     command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
 
@@ -57,7 +57,7 @@ services:
     image: ubuntu:22.04
     build:
       context: .
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./docker/server/Dockerfile
     env_file:
       - ./.envs/.prod
     stdin_open: true
@@ -92,6 +92,18 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
+
+  caddy:
+    image: caddy:latest
+    env_file:
+      - ./.envs/.prod
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - backend_network
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile
 
 networks:
   backend_network:

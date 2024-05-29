@@ -15,7 +15,7 @@ RUN apt-get update \
 RUN ssh-keygen -A \
     && mkdir -p /run/sshd
 
-COPY ./docker/entrypoint.sh /entrypoint.sh
+COPY ./docker/server/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 22

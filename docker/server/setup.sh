@@ -40,7 +40,7 @@ function main() {
   install_rust
   build_project
 
-  print_message "Run 'source $HOME/.cargo/env' to update current shell."
+  print_message "Install complete. Run 'source $HOME/.cargo/env' to update current shell."
 }
 
 main
