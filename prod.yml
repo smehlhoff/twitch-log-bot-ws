@@ -51,6 +51,8 @@ services:
       - backend_network
     volumes:
       - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
     restart: unless-stopped
 
   ubuntu_server:
@@ -75,10 +77,10 @@ services:
       - "5678:5678"
     networks:
       - backend_network
-    depends_on:
-      - postgres
     volumes:
       - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
     restart: unless-stopped
 
   metabase:
@@ -106,6 +108,11 @@ services:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
+    depends_on:
+      - prometheus
+      - grafana
+      - n8n
+      - metabase
     restart: unless-stopped
 
 networks:
