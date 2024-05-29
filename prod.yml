@@ -10,9 +10,9 @@ services:
     networks:
       - backend_network
     volumes:
-      - postgres_data:/var/lib/postgresql/data
       - ./docker/database/init.sh:/docker-entrypoint-initdb.d/init.sh
       - ./docker/database/postgresql.conf:/etc/postgresql/postgresql.conf
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
 
@@ -63,7 +63,7 @@ services:
     stdin_open: true
     tty: true
     ports:
-      - "22:22"
+      - "2222:2222"
     networks:
       - backend_network
 
@@ -104,6 +104,9 @@ services:
       - backend_network
     volumes:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
 
 networks:
   backend_network:
@@ -113,3 +116,5 @@ volumes:
   prometheus_data:
   grafana_data:
   n8n_data:
+  caddy_data:
+  caddy_config:
