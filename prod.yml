@@ -6,7 +6,7 @@ services:
     env_file:
       - ./.envs/.prod
     ports:
-      - "5432:5432"
+      - 5432:5432
     networks:
       - backend_network
     volumes:
@@ -21,7 +21,7 @@ services:
     env_file:
       - ./.envs/.prod
     ports:
-      - "9187:9187"
+      - 9187:9187
     networks:
       - backend_network
     depends_on:
@@ -31,7 +31,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - "9090:9090"
+      - 9090:9090
     networks:
       - backend_network
     volumes:
@@ -46,7 +46,7 @@ services:
     env_file:
       - ./.envs/.prod
     ports:
-      - "3000:3000"
+      - 3000:3000
     networks:
       - backend_network
     volumes:
@@ -55,7 +55,7 @@ services:
       - prometheus
     restart: unless-stopped
 
-  ubuntu_server:
+  ubuntu:
     image: ubuntu:22.04
     build:
       context: .
@@ -65,7 +65,7 @@ services:
     stdin_open: true
     tty: true
     ports:
-      - "2222:2222"
+      - 2222:2222
     networks:
       - backend_network
 
@@ -74,7 +74,7 @@ services:
     env_file:
       - ./.envs/.prod
     ports:
-      - "5678:5678"
+      - 5678:5678
     networks:
       - backend_network
     volumes:
@@ -88,7 +88,7 @@ services:
     env_file:
       - ./.envs/.prod
     ports:
-      - "3001:3000"
+      - 3001:3000
     networks:
       - backend_network
     depends_on:
@@ -100,8 +100,8 @@ services:
     env_file:
       - ./.envs/.prod
     ports:
-      - "80:80"
-      - "443:443"
+      - 80:80
+      - 443:443
     networks:
       - backend_network
     volumes:

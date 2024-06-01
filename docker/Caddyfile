@@ -1,3 +1,14 @@
+postgres.{$DOMAIN} {
+    reverse_proxy postgres:5432
+
+    log {
+        output stdout
+        format console
+    }
+
+    tls {$EMAIL}
+}
+
 prometheus.{$DOMAIN} {
     reverse_proxy prometheus:9090
 
@@ -11,6 +22,17 @@ prometheus.{$DOMAIN} {
 
 grafana.{$DOMAIN} {
     reverse_proxy grafana:3000
+
+    log {
+        output stdout
+        format console
+    }
+
+    tls {$EMAIL}
+}
+
+ubuntu.{$DOMAIN} {
+    reverse_proxy ubuntu:2222
 
     log {
         output stdout

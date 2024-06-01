@@ -10,7 +10,7 @@ services:
       DB_POSTGRESDB_PASSWORD: dev
       MB_DB_PASS: dev
     ports:
-      - "5432:5432"
+      - 5432:5432
     networks:
       - backend_network
     volumes:
@@ -25,7 +25,7 @@ services:
     environment:
       DATA_SOURCE_NAME: postgresql://dev:dev@postgres:5432/dev?sslmode=disable
     ports:
-      - "9187:9187"
+      - 9187:9187
     networks:
       - backend_network
     depends_on:
@@ -35,7 +35,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - "9090:9090"
+      - 9090:9090
     networks:
       - backend_network
     volumes:
@@ -51,7 +51,7 @@ services:
       GF_SECURITY_ADMIN_USER: dev
       GF_SECURITY_ADMIN_PASSWORD: dev
     ports:
-      - "3000:3000"
+      - 3000:3000
     networks:
       - backend_network
     volumes:
@@ -60,7 +60,7 @@ services:
       - prometheus
     restart: unless-stopped
 
-  ubuntu_server:
+  ubuntu:
     image: ubuntu:22.04
     build:
       context: .
@@ -71,7 +71,7 @@ services:
     stdin_open: true
     tty: true
     ports:
-      - "2222:2222"
+      - 2222:2222
     networks:
       - backend_network
 
@@ -91,7 +91,7 @@ services:
       N8N_PORT: 5678
       N8N_PROTOCOL: http
     ports:
-      - "5678:5678"
+      - 5678:5678
     networks:
       - backend_network
     volumes:
@@ -110,7 +110,7 @@ services:
       MB_DB_PASS: dev
       MB_DB_HOST: postgres
     ports:
-      - "3001:3000"
+      - 3001:3000
     networks:
       - backend_network
     depends_on:
