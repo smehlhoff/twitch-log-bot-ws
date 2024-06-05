@@ -16,10 +16,8 @@ RUN ssh-keygen -A \
     && mkdir -p /run/sshd
 
 COPY ./docker/server/entrypoint.sh /entrypoint.sh
-COPY ./docker/server/setup.sh /home/setup.sh
 
 RUN chmod +x /entrypoint.sh
-RUN chmod +x /home/setup.sh
 
 EXPOSE 22
 
