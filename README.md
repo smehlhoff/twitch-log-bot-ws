@@ -26,6 +26,12 @@ Use docker compose to run `dev` or `prod` environments.
 
 For prod, read `/docker/deploy.md` file, as additional steps are required.
 
+## Limitations
+
+This bot can log up to 100 channels simultaneously as a non-verified bot account.
+
+In FY24 Q2, Twitch reduced the concurrent channel join limit to 100 channels. You can read more [here](https://discuss.dev.twitch.com/t/giving-broadcasters-control-concurrent-join-limits-for-irc-and-eventsub/54997) or watch the video [here](https://www.twitch.tv/videos/1953435059?t=00h44m00s).
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
