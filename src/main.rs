@@ -11,8 +11,8 @@ use bb8::Pool;
 use bb8_postgres::PostgresConnectionManager;
 use env_logger::Env;
 use lib::{config, db, error, event, msg, tags};
-use log::{debug, warn};
-use std::{cmp, collections::VecDeque, sync::Arc, thread, time};
+use log::{debug, error, info, warn};
+use std::{cmp, collections::VecDeque, sync::Arc, time};
 use tokio::sync::{mpsc, Mutex};
 use tokio_postgres::NoTls;
 use tungstenite::{connect, Message};
@@ -27,7 +27,7 @@ mod lib {
 }
 
 const MIN_BATCH_SIZE: usize = 10;
-const MAX_BATCH_SIZE: usize = 100;
+const MAX_BATCH_SIZE: usize = 50;
 
 async fn connect_and_listen(
     pool: Pool<PostgresConnectionManager<NoTls>>,
@@ -37,30 +37,16 @@ async fn connect_and_listen(
     let batch = Arc::new(Mutex::new(Vec::new()));
     let mut batch_size = 10;
     let mut buffer = VecDeque::new();
-    let config = config::Config::load().expect("Error reading config file");
-    let (tx, mut rx) = mpsc::channel(10);
-    let (mut socket, _response) =
-        connect(config.server).expect("Error connecting to websocket server");
-
-    socket
-        .send(Message::Text(
-            "CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands".into(),
-        ))
-        .unwrap();
-    socket.send(Message::Text(format!("PASS {}", config.oauth))).unwrap();
-    socket.send(Message::Text(format!("NICK {}", config.nickname))).unwrap();
-
-    // The rate limit to join channels is 20 per 10 seconds per account
-    // https://dev.twitch.tv/docs/irc/#rate-limits
-    for channel in channels {
-        if channel.contains('#') {
-            socket.send(Message::Text(format!("JOIN {channel}"))).unwrap();
-        } else {
-            socket.send(Message::Text(format!("JOIN #{channel}"))).unwrap();
+    let mut reconnect_count = 0;
+    let mut reconnect_time = 30;
+    let config = match config::Config::load() {
+        Ok(data) => data,
+        Err(e) => {
+            error!("Thread #{thread_id}: {e}");
+            return;
         }
-        thread::sleep(time::Duration::from_secs_f32(0.6));
-    }
-
+    };
+    let (tx, mut rx) = mpsc::channel(10);
     let pool_clone = pool.clone();
 
     tokio::spawn(async move {
@@ -76,61 +62,122 @@ async fn connect_and_listen(
     });
 
     loop {
-        let buffer_count = buffer.len();
+        match connect(&config.server) {
+            Ok((mut socket, _response)) => {
+                info!("Thread #{thread_id}: Connected to websocket server successfully");
 
-        debug!("Thread #{thread_id} - Batch Size: {batch_size} Buffer Count: {buffer_count}");
+                // Reset counters
+                reconnect_count = 0;
+                reconnect_time = 30;
 
-        let data = socket.read().expect("Error reading websocket message");
-        let data = data.into_text().expect("Error converting websocket message to string");
-        let mut batch = batch.lock().await;
+                socket
+                    .send(Message::Text(
+                        "CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands".into(),
+                    ))
+                    .unwrap();
+                socket.send(Message::Text(format!("PASS {}", config.oauth))).unwrap();
+                socket.send(Message::Text(format!("NICK {}", config.nickname))).unwrap();
 
-        if data == "PING :tmi.twitch.tv\r\n" {
-            socket.send(Message::Text("PONG :tmi.twitch.tv".into())).unwrap();
-        }
+                info!("Thread #{thread_id}: {channels:?}");
 
-        let tags = tags::Tag::parse_tags(&data);
-        let msg = msg::Msg::parse_message(&data);
-        let event = event::Event::new(msg, tags);
+                // The rate limit to join channels is 20 per 10 seconds per account
+                // https://dev.twitch.tv/docs/irc/#rate-limits
+                for channel in &channels {
+                    match socket.send(Message::Text(format!("JOIN {channel}"))) {
+                        Ok(()) => debug!("Thread #{thread_id}: Joined {channel} successfully"),
+                        Err(e) => {
+                            warn!("Thread #{thread_id}: Error joining {channel}: {e}");
+                        }
+                    }
+                    tokio::time::sleep(time::Duration::from_secs_f32(0.6)).await;
+                }
 
-        if !event.msg.content.is_empty() {
-            batch.push(event);
+                loop {
+                    let buffer_count = buffer.len();
 
-            if batch.len() >= batch_size {
-                let batch_ready = batch.split_off(0);
+                    debug!("Thread #{thread_id}: Batch Size: {batch_size} Buffer Count: {buffer_count}");
 
-                drop(batch);
+                    if let Ok(data) = socket.read() {
+                        let data = data.into_text().unwrap();
 
-                if tx.try_send(batch_ready.clone()).is_err() {
-                    buffer.push_back(batch_ready);
-                    batch_size = cmp::min(batch_size + 10, MAX_BATCH_SIZE);
-                } else {
-                    batch_size = cmp::max(batch_size - 10, MIN_BATCH_SIZE);
+                        if data == "PING :tmi.twitch.tv\r\n" {
+                            socket.send(Message::Text("PONG :tmi.twitch.tv".into())).unwrap();
+                        }
+
+                        let msg = msg::Msg::parse_message(&data);
+                        let tags = tags::Tag::parse_tags(&data);
+                        let event = event::Event::new(msg, tags);
+
+                        if !event.msg.content.is_empty() {
+                            let mut batch = batch.lock().await;
+
+                            batch.push(event);
+
+                            if batch.len() >= batch_size {
+                                let batch_ready = batch.split_off(0);
+
+                                drop(batch);
+
+                                if tx.try_send(batch_ready.clone()).is_err() {
+                                    buffer.push_back(batch_ready);
+                                    batch_size = cmp::min(batch_size + 10, MAX_BATCH_SIZE);
+                                } else {
+                                    batch_size = cmp::max(batch_size - 10, MIN_BATCH_SIZE);
+                                }
+                            }
+                        }
+
+                        while let Some(batch_ready) = buffer.pop_front() {
+                            if tx.try_send(batch_ready.clone()).is_err() {
+                                buffer.push_front(batch_ready);
+                                break;
+                            }
+                        }
+                    } else {
+                        warn!("Thread #{thread_id}: Disconnected from websocket server");
+                        break;
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("Thread #{thread_id}: Error connecting to websocket server: {e}. Retrying in {reconnect_time} seconds...");
+
+                tokio::time::sleep(time::Duration::from_secs(reconnect_time)).await;
+
+                reconnect_count += 1;
+                reconnect_time += 30;
+
+                if reconnect_count == 3 {
+                    warn!("Thread #{thread_id}: Failed to connect to websocket server in {reconnect_count} attempts");
+                    break;
                 }
             }
         }
-
-        while let Some(batch_ready) = buffer.pop_front() {
-            if tx.try_send(batch_ready.clone()).is_err() {
-                buffer.push_front(batch_ready);
-                break;
-            }
-        }
     }
-    // socket.close(None);
 }
 
 #[tokio::main]
 async fn main() -> Result<(), error::Error> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let config = config::Config::load()?;
     let pool = db::create_pool(&config).await?;
-    let channels = config.channels;
-    let channel_count = channels.len();
-    let mut thread_id = 0;
 
     db::create_table(&pool).await?;
 
+    let channels: Vec<String> = config
+        .channels
+        .iter()
+        .map(|x| {
+            let mut channel = x.to_lowercase();
+            if !channel.starts_with('#') {
+                channel.insert(0, '#');
+            }
+            channel
+        })
+        .collect();
+    let channel_count = channels.len();
+    let mut thread_id = 0;
     let thread_count = {
         if channel_count < 50 {
             1
@@ -141,14 +188,12 @@ async fn main() -> Result<(), error::Error> {
     };
 
     match channel_count {
-        0 => println!("Bot is now joining 0 channels...\n"),
-        1 => println!("Bot is now joining 1 channel...\n"),
-        _ => println!("Bot is now joining {channel_count} channels...\n"),
+        0 => info!("Bot is now joining 0 channels...\n"),
+        1 => info!("Bot is now joining 1 channel...\n"),
+        _ => info!("Bot is now joining {channel_count} channels...\n"),
     };
 
     if thread_count == 1 {
-        println!("Thread #{thread_id}: {channels:?}");
-
         connect_and_listen(pool, channels, thread_id).await;
     } else {
         let chunk_size = {
@@ -161,7 +206,6 @@ async fn main() -> Result<(), error::Error> {
         let thread_channels: Vec<Vec<String>> =
             channels.chunks(chunk_size).map(std::borrow::ToOwned::to_owned).collect();
         let mut threads = Vec::new();
-        let mut count = 0;
 
         #[allow(clippy::needless_range_loop)]
         for i in 0..thread_count {
@@ -171,19 +215,16 @@ async fn main() -> Result<(), error::Error> {
 
             thread_id = u32::try_from(i).unwrap_or(0);
 
-            println!("Thread #{thread_id}: {thread_channel_list:?}\n");
-
-            count += thread_channel_list.len();
-
             let thread = tokio::spawn(async move {
                 connect_and_listen(pool_clone, thread_channel_list, thread_id).await;
             });
 
             threads.push(thread);
 
-            if count != channel_count {
+            // No need to sleep on last thread
+            if i != thread_count - 1 {
                 // Let previous thread join all channels before starting the next one
-                thread::sleep(time::Duration::from_secs(25));
+                tokio::time::sleep(time::Duration::from_secs(30)).await;
             }
         }
 
@@ -191,7 +232,7 @@ async fn main() -> Result<(), error::Error> {
             match thread.await {
                 Ok(()) => {}
                 Err(e) => {
-                    warn!("Thread panicked: {e}");
+                    warn!("{e}");
                 }
             }
         }

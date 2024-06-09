@@ -81,7 +81,7 @@ pub async fn create_table(
                 .await
             {
                 Ok(_) => {
-                    info!("Postgres table created successfully or already exists.");
+                    info!("Postgres table created successfully or already exists");
                     Ok(())
                 }
                 Err(e) => {
@@ -212,11 +212,11 @@ pub async fn insert_data(
 
             match transaction.commit().await {
                 Ok(()) => {
-                    info!("Postgres transaction committed successfully");
+                    debug!("Postgres transaction committed successfully");
                     Ok(())
                 }
                 Err(e) => {
-                    error!("Error committing Postgres transaction: {e}");
+                    warn!("Error committing Postgres transaction: {e}");
                     Err(error::Error::Postgres(e))
                 }
             }

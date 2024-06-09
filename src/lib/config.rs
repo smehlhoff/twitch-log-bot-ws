@@ -1,6 +1,6 @@
 use std::fs;
 
-use log::{info, warn};
+use log::{error, info};
 
 use super::error;
 
@@ -24,7 +24,7 @@ impl Config {
                 file
             }
             Err(e) => {
-                warn!("Error opening file: {e}");
+                error!("Error opening file: {e}");
                 return Err(error::Error::Io(e));
             }
         };
@@ -34,7 +34,7 @@ impl Config {
                 json
             }
             Err(e) => {
-                warn!("Error parsing JSON file: {e}");
+                error!("Error parsing JSON file: {e}");
                 return Err(error::Error::Json(e));
             }
         };

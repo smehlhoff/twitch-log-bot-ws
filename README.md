@@ -17,6 +17,15 @@ Rename `config-example.json` to `config.json` and edit fields.
     $ cargo build --release
     $ nohup ./target/release/twitch-log-bot-ws &
 
+## Docker
+
+Use docker compose to run `dev` or `prod` environments.
+
+    $ docker compose -f dev.yml up --detach --build
+    $ docker compose -f prod.yml up --detach --build
+
+For prod, read `/docker/deploy.md` file, as additional steps are required.
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
